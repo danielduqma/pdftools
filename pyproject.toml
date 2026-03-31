@@ -1,12 +1,22 @@
 [project]
 name = "pdftools"
 version = "0.1.0"
-description = "CLI tools for PDF manipulation: merge, 2-up layout, page padding, and page deletion"
+description = "CLI tools for PDF manipulation: merge, 2-up layout, page padding, page deletion, and pipelines"
 requires-python = ">=3.10"
 dependencies = ["pypdf==6.9.2"]
 
 [dependency-groups]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=8.0", "pre-commit>=4.0"]
 
 [project.scripts]
 pdf-tools = "pdf_tools:main"
+
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["."]
+pythonpath = ["."]

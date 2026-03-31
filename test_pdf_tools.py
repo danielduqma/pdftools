@@ -234,6 +234,7 @@ class TestCLI:
             ["pdf_tools.py", "merge", "-i", str(a), str(b), "-o", str(out)],
         )
         from pdf_tools import main
+
         main()
         assert _page_count(out) == 5
 
@@ -245,6 +246,7 @@ class TestCLI:
             ["pdf_tools.py", "2up", "-i", str(src), "-o", str(out)],
         )
         from pdf_tools import main
+
         main()
         assert _page_count(out) == 2
 
@@ -256,6 +258,7 @@ class TestCLI:
             ["pdf_tools.py", "pad", "-i", str(src), "-o", str(out), "-m", "4"],
         )
         from pdf_tools import main
+
         main()
         assert _page_count(out) == 8
 
@@ -267,15 +270,24 @@ class TestCLI:
             ["pdf_tools.py", "delete", "-i", str(src), "-o", str(out), "-p", "1,3"],
         )
         from pdf_tools import main
+
         main()
         assert _page_count(out) == 3
 
     def test_missing_input_exits(self, tmp_path, monkeypatch):
         monkeypatch.setattr(
             "sys.argv",
-            ["pdf_tools.py", "merge", "-i", str(tmp_path / "nope.pdf"), "-o", str(tmp_path / "out.pdf")],
+            [
+                "pdf_tools.py",
+                "merge",
+                "-i",
+                str(tmp_path / "nope.pdf"),
+                "-o",
+                str(tmp_path / "out.pdf"),
+            ],
         )
         from pdf_tools import main
+
         with pytest.raises(SystemExit):
             main()
 
@@ -285,9 +297,20 @@ class TestCLI:
         out_dir = tmp_path / "output"
         monkeypatch.setattr(
             "sys.argv",
-            ["pdf_tools.py", "delete", "-i", str(a), str(b), "-o", str(out_dir), "-p", "1"],
+            [
+                "pdf_tools.py",
+                "delete",
+                "-i",
+                str(a),
+                str(b),
+                "-o",
+                str(out_dir),
+                "-p",
+                "1",
+            ],
         )
         from pdf_tools import main
+
         main()
         assert _page_count(out_dir / "a.pdf") == 3
         assert _page_count(out_dir / "b.pdf") == 5
@@ -354,7 +377,9 @@ class TestParsePipeline:
         assert stages[0].command == "2up"
 
     def test_multiple_stages(self):
-        stages = parse_pipeline(["delete", "-p", "1", "+", "pad", "-m", "4", "+", "merge"])
+        stages = parse_pipeline(
+            ["delete", "-p", "1", "+", "pad", "-m", "4", "+", "merge"]
+        )
         assert len(stages) == 3
         assert stages[0].command == "delete"
         assert stages[0].params == {"pages": "1"}
@@ -414,12 +439,14 @@ class TestValidatePipeline:
             validate_pipeline([PipelineStage(command="pad", params={"multiple": 1})])
 
     def test_valid_pipeline_passes(self):
-        validate_pipeline([
-            PipelineStage(command="delete", params={"pages": "1"}),
-            PipelineStage(command="pad", params={"multiple": 4}),
-            PipelineStage(command="2up"),
-            PipelineStage(command="merge"),
-        ])
+        validate_pipeline(
+            [
+                PipelineStage(command="delete", params={"pages": "1"}),
+                PipelineStage(command="pad", params={"multiple": 4}),
+                PipelineStage(command="2up"),
+                PipelineStage(command="merge"),
+            ]
+        )
 
 
 # --- Pipeline execution ---
@@ -455,7 +482,7 @@ class TestRunPipeline:
         a = _make_pdf(5, tmp_path / "a.pdf")
         b = _make_pdf(5, tmp_path / "b.pdf")
         out = tmp_path / "out.pdf"
-        # delete page 1 from each (4 each) → pad to 4 (already 4) → 2up (2 each) → merge (4 total)
+        # delete p1 each (4) → pad to 4 (=4) → 2up (2 each) → merge (4)
         stages = [
             PipelineStage(command="delete", params={"pages": "1"}),
             PipelineStage(command="pad", params={"multiple": 4}),
@@ -534,10 +561,25 @@ class TestPipeCLI:
         out = tmp_path / "out.pdf"
         monkeypatch.setattr(
             "sys.argv",
-            ["pdf_tools.py", "pipe", "-i", str(src), "-o", str(out),
-             "--", "delete", "-p", "1", "+", "pad", "-m", "4"],
+            [
+                "pdf_tools.py",
+                "pipe",
+                "-i",
+                str(src),
+                "-o",
+                str(out),
+                "--",
+                "delete",
+                "-p",
+                "1",
+                "+",
+                "pad",
+                "-m",
+                "4",
+            ],
         )
         from pdf_tools import main
+
         main()
         assert _page_count(out) == 4
 
@@ -547,11 +589,30 @@ class TestPipeCLI:
         out = tmp_path / "out.pdf"
         monkeypatch.setattr(
             "sys.argv",
-            ["pdf_tools.py", "pipe", "-i", str(a), str(b), "-o", str(out),
-             "--", "delete", "-p", "1", "+", "pad", "-m", "4",
-             "+", "2up", "+", "merge"],
+            [
+                "pdf_tools.py",
+                "pipe",
+                "-i",
+                str(a),
+                str(b),
+                "-o",
+                str(out),
+                "--",
+                "delete",
+                "-p",
+                "1",
+                "+",
+                "pad",
+                "-m",
+                "4",
+                "+",
+                "2up",
+                "+",
+                "merge",
+            ],
         )
         from pdf_tools import main
+
         main()
         assert _page_count(out) == 4
 
@@ -561,10 +622,26 @@ class TestPipeCLI:
         out = tmp_path / "out.pdf"
         monkeypatch.setattr(
             "sys.argv",
-            ["pdf_tools.py", "pipe", "-i", str(a), str(b), "-o", str(out),
-             "--", "delete", "-p", "1:1,2", "-p", "2:1", "+", "merge"],
+            [
+                "pdf_tools.py",
+                "pipe",
+                "-i",
+                str(a),
+                str(b),
+                "-o",
+                str(out),
+                "--",
+                "delete",
+                "-p",
+                "1:1,2",
+                "-p",
+                "2:1",
+                "+",
+                "merge",
+            ],
         )
         from pdf_tools import main
+
         main()
         # a: 5-2=3, b: 4-1=3, merged: 6
         assert _page_count(out) == 6
@@ -572,9 +649,18 @@ class TestPipeCLI:
     def test_pipe_cli_missing_input_exits(self, tmp_path, monkeypatch):
         monkeypatch.setattr(
             "sys.argv",
-            ["pdf_tools.py", "pipe", "-i", str(tmp_path / "nope.pdf"),
-             "-o", str(tmp_path / "out.pdf"), "--", "2up"],
+            [
+                "pdf_tools.py",
+                "pipe",
+                "-i",
+                str(tmp_path / "nope.pdf"),
+                "-o",
+                str(tmp_path / "out.pdf"),
+                "--",
+                "2up",
+            ],
         )
         from pdf_tools import main
+
         with pytest.raises(SystemExit):
             main()

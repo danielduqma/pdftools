@@ -13,10 +13,10 @@ from pathlib import Path
 
 from pypdf import PageObject, PdfReader, PdfWriter, Transformation
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _writer_to_buffer(writer: PdfWriter) -> BytesIO:
     """Serialize a PdfWriter to an in-memory buffer."""
@@ -29,6 +29,7 @@ def _writer_to_buffer(writer: PdfWriter) -> BytesIO:
 # ---------------------------------------------------------------------------
 # Core functions (BytesIO → BytesIO)
 # ---------------------------------------------------------------------------
+
 
 def merge_core(inputs: list[BytesIO]) -> BytesIO:
     writer = PdfWriter()
@@ -104,7 +105,7 @@ def delete_pages_core(input_buf: BytesIO, pages_spec: str) -> BytesIO:
     to_delete = parse_pages(pages_spec, total)
 
     if len(to_delete) >= total:
-        sys.exit("Error: no se pueden eliminar todas las páginas")
+        sys.exit("Error: cannot delete all pages")
 
     writer = PdfWriter()
     for i, page in enumerate(reader.pages):
@@ -123,12 +124,12 @@ def parse_pages(spec: str, total: int) -> set[int]:
             start, end = part.split("-", 1)
             start_i, end_i = int(start), int(end)
             if start_i < 1 or end_i > total or start_i > end_i:
-                sys.exit(f"Error: rango inválido {part} (el PDF tiene {total} páginas)")
+                sys.exit(f"Error: invalid range {part} (PDF has {total} pages)")
             pages.update(range(start_i - 1, end_i))
         else:
             n = int(part)
             if n < 1 or n > total:
-                sys.exit(f"Error: página {n} fuera de rango (el PDF tiene {total} páginas)")
+                sys.exit(f"Error: page {n} out of range (PDF has {total} pages)")
             pages.add(n - 1)
     return pages
 
@@ -137,13 +138,14 @@ def parse_pages(spec: str, total: int) -> set[int]:
 # Disk wrappers (Path → Path, for standalone subcommands)
 # ---------------------------------------------------------------------------
 
+
 def merge(inputs: list[Path], output: Path) -> None:
     buffers = [BytesIO(p.read_bytes()) for p in inputs]
     result = merge_core(buffers)
     total_pages = len(PdfReader(result).pages)
     result.seek(0)
     output.write_bytes(result.getvalue())
-    print(f"Fusionado {len(inputs)} PDFs → {output} ({total_pages} páginas)")
+    print(f"Merged {len(inputs)} PDFs -> {output} ({total_pages} pages)")
 
 
 def two_up(input_path: Path, output: Path) -> None:
@@ -154,7 +156,7 @@ def two_up(input_path: Path, output: Path) -> None:
     out_pages = len(PdfReader(result).pages)
     result.seek(0)
     output.write_bytes(result.getvalue())
-    print(f"2-up: {src_pages} páginas → {out_pages} páginas en {output}")
+    print(f"2-up: {src_pages} pages -> {out_pages} pages in {output}")
 
 
 def pad_multiple(input_path: Path, output: Path, multiple: int) -> None:
@@ -167,8 +169,8 @@ def pad_multiple(input_path: Path, output: Path, multiple: int) -> None:
     result.seek(0)
     output.write_bytes(result.getvalue())
     print(
-        f"Redondeo: {total} + {blanks_needed} en blanco = "
-        f"{final_pages} páginas (múltiplo de {multiple}) → {output}"
+        f"Padded: {total} + {blanks_needed} blank = "
+        f"{final_pages} pages (multiple of {multiple}) -> {output}"
     )
 
 
@@ -181,15 +183,13 @@ def delete_pages(input_path: Path, output: Path, pages_spec: str) -> None:
     deleted = total - remaining
     result.seek(0)
     output.write_bytes(result.getvalue())
-    print(
-        f"Eliminadas {deleted} páginas de {total} → "
-        f"{remaining} páginas en {output}"
-    )
+    print(f"Deleted {deleted} pages from {total} -> {remaining} pages in {output}")
 
 
 # ---------------------------------------------------------------------------
 # Pipeline engine
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class PipelineStage:
@@ -226,7 +226,7 @@ def _parse_stage(tokens: list[str]) -> PipelineStage:
             params["multiple"] = int(tokens[i + 1])
             i += 2
         else:
-            sys.exit(f"Error: argumento inesperado '{tokens[i]}' para '{cmd}'")
+            sys.exit(f"Error: unexpected argument '{tokens[i]}' for '{cmd}'")
     if page_specs:
         has_prefix = any(":" in s for s in page_specs)
         if has_prefix:
@@ -234,31 +234,34 @@ def _parse_stage(tokens: list[str]) -> PipelineStage:
             for spec in page_specs:
                 if ":" not in spec:
                     sys.exit(
-                        f"Error: al usar delete per-file, todos los -p deben "
-                        f"llevar prefijo <n>: (encontrado '{spec}')"
+                        f"Error: per-file delete requires all -p to have "
+                        f"<n>: prefix (found '{spec}')"
                     )
                 idx_str, pages = spec.split(":", 1)
                 per_file[int(idx_str)] = pages
             params["pages"] = per_file
         else:
             if len(page_specs) > 1:
-                sys.exit("Error: delete global solo acepta un -p (usa <n>: para per-file)")
+                sys.exit(
+                    "Error: global delete accepts only one -p"
+                    " (use <n>: prefix for per-file)"
+                )
             params["pages"] = page_specs[0]
     return PipelineStage(command=cmd, params=params)
 
 
 def validate_pipeline(stages: list[PipelineStage]) -> None:
     if not stages:
-        sys.exit("Error: el pipeline no puede estar vacío")
+        sys.exit("Error: pipeline cannot be empty")
     for stage in stages:
         if stage.command not in ("merge", "2up", "pad", "delete"):
-            sys.exit(f"Error: comando desconocido '{stage.command}'")
+            sys.exit(f"Error: unknown command '{stage.command}'")
         if stage.command == "delete" and "pages" not in stage.params:
-            sys.exit("Error: 'delete' requiere -p/--pages")
+            sys.exit("Error: 'delete' requires -p/--pages")
         if stage.command == "pad" and "multiple" not in stage.params:
-            sys.exit("Error: 'pad' requiere -m/--multiple")
+            sys.exit("Error: 'pad' requires -m/--multiple")
         if stage.command == "pad" and stage.params["multiple"] < 2:
-            sys.exit("Error: el múltiplo debe ser >= 2")
+            sys.exit("Error: multiple must be >= 2")
 
 
 def run_pipeline(inputs: list[Path], output: Path, stages: list[PipelineStage]) -> None:
@@ -289,15 +292,16 @@ def run_pipeline(inputs: list[Path], output: Path, stages: list[PipelineStage]) 
         output.write_bytes(buffers[0].getvalue())
     else:
         output.mkdir(parents=True, exist_ok=True)
-        for inp, buf in zip(inputs, buffers):
+        for inp, buf in zip(inputs, buffers, strict=True):
             (output / inp.name).write_bytes(buf.getvalue())
 
-    print(f"Pipeline: {len(stages)} etapas → {output}")
+    print(f"Pipeline: {len(stages)} stages -> {output}")
 
 
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="PDF tools")
@@ -305,35 +309,59 @@ def main() -> None:
 
     # merge
     p_merge = sub.add_parser("merge", help="Merge multiple PDFs into one")
-    p_merge.add_argument("--input", "-i", nargs="+", required=True, type=Path,
-                         help="Input PDFs")
-    p_merge.add_argument("--output", "-o", required=True, type=Path,
-                         help="Output PDF")
+    p_merge.add_argument(
+        "--input", "-i", nargs="+", required=True, type=Path, help="Input PDFs"
+    )
+    p_merge.add_argument("--output", "-o", required=True, type=Path, help="Output PDF")
 
     # 2-up
     p_2up = sub.add_parser("2up", help="Two pages per sheet")
-    p_2up.add_argument("--input", "-i", nargs="+", required=True, type=Path,
-                       help="Input PDFs")
-    p_2up.add_argument("--output", "-o", required=True, type=Path,
-                       help="Output PDF or directory (if multiple inputs)")
+    p_2up.add_argument(
+        "--input", "-i", nargs="+", required=True, type=Path, help="Input PDFs"
+    )
+    p_2up.add_argument(
+        "--output",
+        "-o",
+        required=True,
+        type=Path,
+        help="Output PDF or directory (if multiple inputs)",
+    )
 
     # delete
     p_del = sub.add_parser("delete", help="Delete specific pages from a PDF")
-    p_del.add_argument("--input", "-i", nargs="+", required=True, type=Path,
-                       help="Input PDFs")
-    p_del.add_argument("--output", "-o", required=True, type=Path,
-                       help="Output PDF or directory (if multiple inputs)")
-    p_del.add_argument("--pages", "-p", required=True, type=str,
-                       help="Pages to delete (e.g. '1,3,5-8')")
+    p_del.add_argument(
+        "--input", "-i", nargs="+", required=True, type=Path, help="Input PDFs"
+    )
+    p_del.add_argument(
+        "--output",
+        "-o",
+        required=True,
+        type=Path,
+        help="Output PDF or directory (if multiple inputs)",
+    )
+    p_del.add_argument(
+        "--pages",
+        "-p",
+        required=True,
+        type=str,
+        help="Pages to delete (e.g. '1,3,5-8')",
+    )
 
     # pad
     p_pad = sub.add_parser("pad", help="Pad page count to a multiple")
-    p_pad.add_argument("--input", "-i", nargs="+", required=True, type=Path,
-                       help="Input PDFs")
-    p_pad.add_argument("--output", "-o", required=True, type=Path,
-                       help="Output PDF or directory (if multiple inputs)")
-    p_pad.add_argument("--multiple", "-m", required=True, type=int,
-                       help="Desired multiple (e.g. 4)")
+    p_pad.add_argument(
+        "--input", "-i", nargs="+", required=True, type=Path, help="Input PDFs"
+    )
+    p_pad.add_argument(
+        "--output",
+        "-o",
+        required=True,
+        type=Path,
+        help="Output PDF or directory (if multiple inputs)",
+    )
+    p_pad.add_argument(
+        "--multiple", "-m", required=True, type=int, help="Desired multiple (e.g. 4)"
+    )
 
     # pipe
     p_pipe = sub.add_parser(
@@ -345,24 +373,27 @@ def main() -> None:
             "delete supports per-file mode: -p 1:<pages> -p 2:<pages>."
         ),
     )
-    p_pipe.add_argument("--input", "-i", nargs="+", required=True, type=Path,
-                        help="Input PDFs")
-    p_pipe.add_argument("--output", "-o", required=True, type=Path,
-                        help="Output PDF or directory")
-    p_pipe.add_argument("pipeline", nargs=argparse.REMAINDER,
-                        help="Pipeline stages separated by +")
+    p_pipe.add_argument(
+        "--input", "-i", nargs="+", required=True, type=Path, help="Input PDFs"
+    )
+    p_pipe.add_argument(
+        "--output", "-o", required=True, type=Path, help="Output PDF or directory"
+    )
+    p_pipe.add_argument(
+        "pipeline", nargs=argparse.REMAINDER, help="Pipeline stages separated by +"
+    )
 
     args = parser.parse_args()
 
     if args.command == "merge":
         for p in args.input:
             if not p.exists():
-                sys.exit(f"Error: no existe {p}")
+                sys.exit(f"Error: file not found {p}")
         merge(args.input, args.output)
     elif args.command == "pipe":
         for p in args.input:
             if not p.exists():
-                sys.exit(f"Error: no existe {p}")
+                sys.exit(f"Error: file not found {p}")
         tokens = args.pipeline
         if tokens and tokens[0] == "--":
             tokens = tokens[1:]
@@ -372,14 +403,14 @@ def main() -> None:
     elif args.command in ("2up", "pad", "delete"):
         for p in args.input:
             if not p.exists():
-                sys.exit(f"Error: no existe {p}")
+                sys.exit(f"Error: file not found {p}")
         if args.command == "pad" and args.multiple < 2:
-            sys.exit("Error: el múltiplo debe ser >= 2")
+            sys.exit("Error: multiple must be >= 2")
 
         if len(args.input) > 1:
             args.output.mkdir(parents=True, exist_ok=True)
             if not args.output.is_dir():
-                sys.exit(f"Error: con varios inputs, -o debe ser una carpeta")
+                sys.exit("Error: with multiple inputs, -o must be a directory")
 
         for inp in args.input:
             if len(args.input) == 1 and not args.output.is_dir():
