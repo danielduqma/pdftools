@@ -1,0 +1,9 @@
+[project]
+name = "pdftools"
+version = "0.1.0"
+description = "CLI tools for PDF manipulation: merge, 2-up layout, and page padding"
+requires-python = ">=3.10"
+dependencies = ["pypdf==6.9.2"]
+
+[project.scripts]
+pdf-tools = "pdf_tools:main"
